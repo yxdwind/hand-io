@@ -192,7 +192,7 @@ public class MyNetty {
 /**
  *
  * @ChannelHandler.Sharable  解决了多个线程同时使用一个handler的问题 io.hand.netty.MyInHandler is not a @Sharable handler, so can't be added or removed multiple times.
- * 因为服务端注册的时候，MyInHandler是同一个对象，所以会报错
+ * 因为服务端注册的时候，MyInHandler是同一个对象，所以会报错，但是不是最优解。
  */
 @ChannelHandler.Sharable
 class MyInHandler extends ChannelInboundHandlerAdapter {

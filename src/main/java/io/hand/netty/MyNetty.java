@@ -107,7 +107,7 @@ public class MyNetty {
         thread.register(server);
 
         ChannelPipeline pipeline = server.pipeline();
-        pipeline.addLast(new MyAcceptHandler(thread,new MyInHandler()));
+        pipeline.addLast(new MyAcceptHandler(thread,new ChannelInit()));
         ChannelFuture bind = server.bind(new InetSocketAddress("192.168.91.1",9999));
          bind.sync().channel().closeFuture().sync();
         System.out.println("server close");
@@ -144,6 +144,20 @@ public class MyNetty {
 
     }
 
+    /**
+     *
+     */
+    @ChannelHandler.Sharable
+    class ChannelInit extends ChannelInboundHandlerAdapter{
+        @Override
+        public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+            Channel channel = ctx.channel();
+            // client:pipeline:[ChannelInit,MyInHandler]
+            channel.pipeline().addLast(new MyInHandler());
+            // this:ChannelInit 是一个过渡的handler，用完就删除
+            channel.pipeline().remove(this);
+        }
+    }
 
     class MyAcceptHandler extends ChannelInboundHandlerAdapter {
         EventLoopGroup selector;
@@ -166,12 +180,16 @@ public class MyNetty {
 
             SocketChannel client = (SocketChannel) msg;
 
+            // 响应handler
+            ChannelPipeline pipeline = client.pipeline();
+
+            // client:pipeline:[ChannelInit,]
+            pipeline.addLast(handler);
+
             // 注册
             selector.register(client);
 
-            // 响应handler
-            ChannelPipeline pipeline = client.pipeline();
-            pipeline.addLast(handler);
+
 
         }
 

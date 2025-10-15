@@ -1,6 +1,10 @@
 package io.hand.netty;
 
-import io.netty.buffer.*;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -107,9 +111,9 @@ public class MyNetty {
         thread.register(server);
 
         ChannelPipeline pipeline = server.pipeline();
-        pipeline.addLast(new MyAcceptHandler(thread,new ChannelInit()));
-        ChannelFuture bind = server.bind(new InetSocketAddress("192.168.91.1",9999));
-         bind.sync().channel().closeFuture().sync();
+        pipeline.addLast(new MyAcceptHandler(thread, new ChannelInit()));
+        ChannelFuture bind = server.bind(new InetSocketAddress("192.168.91.1", 9999));
+        bind.sync().channel().closeFuture().sync();
         System.out.println("server close");
 
     }
@@ -144,11 +148,44 @@ public class MyNetty {
 
     }
 
+    @Test
+    public void nettyServer() throws InterruptedException {
+        NioEventLoopGroup group = new NioEventLoopGroup(1);
+        ServerBootstrap serverBootstrap = new ServerBootstrap();
+        serverBootstrap.group(group, group).channel(NioServerSocketChannel.class)
+                .childHandler(new ChannelInitializer<NioSocketChannel>() {
+                    @Override
+                    protected void initChannel(NioSocketChannel ch) {
+                        ch.pipeline().addLast(new MyInHandler());
+                    }
+                }).bind(new InetSocketAddress(9999)).sync().channel().closeFuture().sync();
+    }
+
+    @Test
+    public void nettyClient() throws InterruptedException {
+        NioEventLoopGroup group = new NioEventLoopGroup(1);
+        Bootstrap bootstrap = new Bootstrap();
+        ChannelFuture connect = bootstrap.group(group).channel(NioSocketChannel.class).handler(new ChannelInitializer<NioSocketChannel>() {
+            @Override
+            protected void initChannel(NioSocketChannel ch) {
+                ch.pipeline().addLast(new MyInHandler());
+            }
+        }).connect(new InetSocketAddress(9999));
+        Channel client = connect.sync().channel();
+
+        ByteBuf byteBuf = Unpooled.copiedBuffer("hello server".getBytes());
+        ChannelFuture channelFuture = client.writeAndFlush(byteBuf);
+        channelFuture.sync();
+
+        client.closeFuture().sync();
+
+    }
+
     /**
      *
      */
     @ChannelHandler.Sharable
-    class ChannelInit extends ChannelInboundHandlerAdapter{
+    class ChannelInit extends ChannelInboundHandlerAdapter {
         @Override
         public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
             Channel channel = ctx.channel();
@@ -190,7 +227,6 @@ public class MyNetty {
             selector.register(client);
 
 
-
         }
 
         @Override
@@ -209,7 +245,7 @@ public class MyNetty {
 
 /**
  *
- * @ChannelHandler.Sharable  解决了多个线程同时使用一个handler的问题 io.hand.netty.MyInHandler is not a @Sharable handler, so can't be added or removed multiple times.
+ * @ChannelHandler.Sharable 解决了多个线程同时使用一个handler的问题 io.hand.netty.MyInHandler is not a @Sharable handler, so can't be added or removed multiple times.
  * 因为服务端注册的时候，MyInHandler是同一个对象，所以会报错，但是不是最优解。
  */
 @ChannelHandler.Sharable
@@ -224,10 +260,10 @@ class MyInHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
 //        super.channelRead(ctx, msg);
         System.out.println("channelRead");
-        ByteBuf buf = (ByteBuf)msg;
+        ByteBuf buf = (ByteBuf) msg;
         // read会移动指针，读取完之后就没了
 //        CharSequence str = buf.readCharSequence(buf.readableBytes(), CharsetUtil.UTF_8);
-        CharSequence str = buf.getCharSequence(0,buf.readableBytes(), CharsetUtil.UTF_8);
+        CharSequence str = buf.getCharSequence(0, buf.readableBytes(), CharsetUtil.UTF_8);
 
         System.out.println(str);
 

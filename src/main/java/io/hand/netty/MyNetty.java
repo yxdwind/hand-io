@@ -2,6 +2,7 @@ package io.hand.netty;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import org.junit.jupiter.api.Test;
 
@@ -10,13 +11,15 @@ public class MyNetty {
     @Test
     public void testByteBuf() {
         // 池化，直接内存
-        ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer(8, 20);
+//        ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer(8, 20);
 
         // 非池化，直接内存
 //        ByteBuf buffer = UnpooledByteBufAllocator.DEFAULT.buffer(8, 20);
 
         // 非池化，堆内存
-//        ByteBuf buffer = UnpooledByteBufAllocator.DEFAULT.heapBuffer(8, 20);
+        ByteBuf buffer = UnpooledByteBufAllocator.DEFAULT.heapBuffer(8, 20);
+        // 池化，堆内存
+//        ByteBuf buffer = PooledByteBufAllocator.DEFAULT.heapBuffer(8, 20);
 
 
         print(buffer);
@@ -50,6 +53,7 @@ public class MyNetty {
         System.out.println("是否可读: " + byteBuf.isReadable());
         System.out.println("是否可写: " + byteBuf.isWritable());
         System.out.println("是否direct: " + byteBuf.isDirect());
+        System.out.println("是否连续内存: " + byteBuf.isContiguous());
         System.out.println("=== ByteBuf 信息结束 ===");
     }
 }

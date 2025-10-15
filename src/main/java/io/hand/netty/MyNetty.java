@@ -3,18 +3,16 @@ package io.hand.netty;
 import io.netty.buffer.*;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.sctp.nio.NioSctpChannel;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.CharsetUtil;
-import io.netty.util.concurrent.EventExecutorGroup;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
 public class MyNetty {
-
-
 
 
     @Test
@@ -47,9 +45,9 @@ public class MyNetty {
 //        print(buffer);
 
 
-
     }
-    public void print(ByteBuf byteBuf){
+
+    public void print(ByteBuf byteBuf) {
         System.out.println("=== ByteBuf 信息 ===");
         System.out.println("ByteBuf: " + byteBuf);
         System.out.println("引用计数: " + byteBuf.refCnt());
@@ -67,15 +65,13 @@ public class MyNetty {
     }
 
 
-
-
     @Test
     public void loopExecutor() throws IOException {
         // group 是一个线程池，默认线程数是 CPU 核心数
         NioEventLoopGroup selector = new NioEventLoopGroup(2);
         selector.execute(() -> {
             try {
-                for(;;) {
+                for (; ; ) {
                     System.out.println("hello world");
                     Thread.sleep(1000);
                 }
@@ -86,7 +82,7 @@ public class MyNetty {
 
         selector.execute(() -> {
             try {
-                for(;;) {
+                for (; ; ) {
                     System.out.println("hello world2");
                     Thread.sleep(1000);
                 }
@@ -98,6 +94,24 @@ public class MyNetty {
         System.in.read();
 
 //        selector.shutdownGracefully();
+    }
+
+
+    @Test
+    public void serverMode() throws InterruptedException {
+        NioEventLoopGroup thread = new NioEventLoopGroup(1);
+
+        // 服务端模式，每个连接一个线程
+        NioServerSocketChannel server = new NioServerSocketChannel();
+
+        thread.register(server);
+
+        ChannelPipeline pipeline = server.pipeline();
+        pipeline.addLast(new MyAcceptHandler(thread,new MyInHandler()));
+        ChannelFuture bind = server.bind(new InetSocketAddress("192.168.91.1",9999));
+         bind.sync().channel().closeFuture().sync();
+        System.out.println("server close");
+
     }
 
     @Test
@@ -131,8 +145,56 @@ public class MyNetty {
     }
 
 
+    class MyAcceptHandler extends ChannelInboundHandlerAdapter {
+        EventLoopGroup selector;
+        ChannelHandler handler;
+
+        public MyAcceptHandler(EventLoopGroup thread, ChannelHandler handler) {
+            this.selector = thread;
+            this.handler = handler;
+
+        }
+
+        @Override
+        public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+//        super.channelRegistered(ctx);
+            System.out.println("channelRegistered");
+        }
+
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+
+            SocketChannel client = (SocketChannel) msg;
+
+            // 注册
+            selector.register(client);
+
+            // 响应handler
+            ChannelPipeline pipeline = client.pipeline();
+            pipeline.addLast(handler);
+
+        }
+
+        @Override
+        public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+//        super.channelReadComplete(ctx);
+            System.out.println(" server channelReadComplete");
+        }
+
+        @Override
+        public void channelActive(ChannelHandlerContext ctx) throws Exception {
+//        super.channelActive(ctx);
+            System.out.println(" server channelActive");
+        }
+    }
 }
 
+/**
+ *
+ * @ChannelHandler.Sharable  解决了多个线程同时使用一个handler的问题 io.hand.netty.MyInHandler is not a @Sharable handler, so can't be added or removed multiple times.
+ * 因为服务端注册的时候，MyInHandler是同一个对象，所以会报错
+ */
+@ChannelHandler.Sharable
 class MyInHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {

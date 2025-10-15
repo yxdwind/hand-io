@@ -1,10 +1,16 @@
 package io.hand.netty;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.PooledByteBufAllocator;
-import io.netty.buffer.UnpooledByteBufAllocator;
+import io.netty.buffer.*;
+import io.netty.channel.*;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.sctp.nio.NioSctpChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.CharsetUtil;
+import io.netty.util.concurrent.EventExecutorGroup;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
 
 public class MyNetty {
 
@@ -58,5 +64,105 @@ public class MyNetty {
         System.out.println("是否direct: " + byteBuf.isDirect());
         System.out.println("是否连续内存: " + byteBuf.isContiguous());
         System.out.println("=== ByteBuf 信息结束 ===");
+    }
+
+
+
+
+    @Test
+    public void loopExecutor() throws IOException {
+        // group 是一个线程池，默认线程数是 CPU 核心数
+        NioEventLoopGroup selector = new NioEventLoopGroup(2);
+        selector.execute(() -> {
+            try {
+                for(;;) {
+                    System.out.println("hello world");
+                    Thread.sleep(1000);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        selector.execute(() -> {
+            try {
+                for(;;) {
+                    System.out.println("hello world2");
+                    Thread.sleep(1000);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        System.in.read();
+
+//        selector.shutdownGracefully();
+    }
+
+    @Test
+    public void clientMode() throws InterruptedException {
+        NioEventLoopGroup thread = new NioEventLoopGroup(1);
+
+        // 客户端模式，每个连接一个线程
+        NioSocketChannel client = new NioSocketChannel();
+
+        // epoll_ctl(5,ADD,3)
+        thread.register(client);
+
+        ChannelPipeline pipeline = client.pipeline();
+        pipeline.addLast(new MyInHandler());
+
+
+        // 异步的，不会阻塞
+        ChannelFuture connect = client.connect(new InetSocketAddress("192.168.91.254", 9999));
+        ChannelFuture sync = connect.sync();
+
+
+        ByteBuf byteBuf = Unpooled.copiedBuffer("hello server".getBytes());
+        ChannelFuture channelFuture = client.writeAndFlush(byteBuf);
+        channelFuture.sync();
+
+        sync.channel().closeFuture().sync();
+
+        System.out.println("client over ...");
+
+
+    }
+
+
+}
+
+class MyInHandler extends ChannelInboundHandlerAdapter {
+    @Override
+    public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+//        super.channelRegistered(ctx);
+        System.out.println("channelRegistered");
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+//        super.channelRead(ctx, msg);
+        System.out.println("channelRead");
+        ByteBuf buf = (ByteBuf)msg;
+        // read会移动指针，读取完之后就没了
+//        CharSequence str = buf.readCharSequence(buf.readableBytes(), CharsetUtil.UTF_8);
+        CharSequence str = buf.getCharSequence(0,buf.readableBytes(), CharsetUtil.UTF_8);
+
+        System.out.println(str);
+
+        ctx.writeAndFlush(buf);
+    }
+
+    @Override
+    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+//        super.channelReadComplete(ctx);
+        System.out.println("channelReadComplete");
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+//        super.channelActive(ctx);
+        System.out.println("channelActive");
     }
 }

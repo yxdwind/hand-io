@@ -9,14 +9,14 @@ public class MyNetty {
 
     @Test
     public void testByteBuf() {
-        // 池化
-//        ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer(8, 20);
+        // 池化，直接内存
+        ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer(8, 20);
 
         // 非池化，直接内存
 //        ByteBuf buffer = UnpooledByteBufAllocator.DEFAULT.buffer(8, 20);
 
         // 非池化，堆内存
-        ByteBuf buffer = UnpooledByteBufAllocator.DEFAULT.heapBuffer(8, 20);
+//        ByteBuf buffer = UnpooledByteBufAllocator.DEFAULT.heapBuffer(8, 20);
 
 
         print(buffer);
@@ -49,6 +49,7 @@ public class MyNetty {
         System.out.println("可写字节数: " + byteBuf.writableBytes());
         System.out.println("是否可读: " + byteBuf.isReadable());
         System.out.println("是否可写: " + byteBuf.isWritable());
+        System.out.println("是否direct: " + byteBuf.isDirect());
         System.out.println("=== ByteBuf 信息结束 ===");
     }
 }
